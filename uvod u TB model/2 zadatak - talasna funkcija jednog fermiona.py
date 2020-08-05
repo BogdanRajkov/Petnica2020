@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import pi, cos
-    
-l = 4 
-N = l*l
-kx = ky = np.arange(0, 2*pi, step=(2*pi)/l) # kx=ky=(0, pi/2, pi, 3pi/2)
+
+
+L = 4
+N = L*L
+kx = ky = np.arange(0, 2*pi, step=(2*pi)/L)  # kx=ky=(0, pi/2, pi, 3pi/2)
 x = y = np.arange(0, 5, step=0.05)
 cx = cy = np.arange(0, 4)
 cxx, cyy = np.meshgrid(cx, cy)
@@ -17,8 +18,9 @@ for ix in kx:
     for iy in ky:
         for i in range(len(x)):
             for j in range(len(y)):
-                psi[i][j] = 1/np.sqrt(N) * cos(np.dot([ix, iy], [xx[i][j], yy[i][j]]))
-        
+                psi[i][j] = 1/np.sqrt(N) * \
+                    cos(np.dot([ix, iy], [xx[i][j], yy[i][j]]))
+
         plt.contourf(x, y, psi)
         plt.title('k = [' + str(ix) + ', ' + str(iy) + ']')
         plt.colorbar().ax.set_ylabel('talasna funkcija')
@@ -26,7 +28,7 @@ for ix in kx:
         plt.ylim(0, 4)
         plt.ylabel('y')
         plt.xlabel('x')
-        
+
         plt.scatter(cxx.flatten(), cyy.flatten(), c='k')
-        
+
         plt.show()
