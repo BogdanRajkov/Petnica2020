@@ -183,7 +183,13 @@ def get_state_ac_operator(state, a_or_c, parameters=None):
         parameters = get_parameter()
     n_orb = parameters['L'] ** 2
     n_dim = (parameters['max_occupancy'] + 1) ** (parameters['L'] ** 2)
-
+    '''state2=[]
+    for s in state:
+        if s!=0:
+            state2.append(s)
+    state=state2
+    print(state)'''
+    
     orb_ops = np.empty((n_orb, n_dim, n_dim))
     for it in range(n_orb):
         orb_ops[it, :, :] = get_ac_operator(it, a_or_c, parameters)
@@ -394,15 +400,74 @@ def check_Wick_theorem(state_vec, parameters=None):
         print("Postoje verovatnoće koje se ne poklapaju.")
 
 
-def ground_state_from_alpha_operator(alpha, vals):
+def ground_state_from_alpha_operator():
     ground_state = np.zeros(16)
     ground_state[0] = 1
+    evals, evecs, alpha, vals=evals_and_evecs()
+    print("funkcija gorund state alpha")
+    print(vals)
     alpha = np.transpose(alpha)
+    print('sta je ovo')
+    print(alpha)
     for i, a in enumerate(alpha):
         if vals[i] < 0:
             ground_state = get_state_ac_operator(a, 'c') @ ground_state
-
+    
     return ground_state
+
+def evals_and_evecs():
+    evals=[]
+    evecs=[]
+    splitovani = split_hamiltonian_into_blocks(parameters)
+    for i, i_ptcl_hmltn in enumerate(splitovani):
+        vals, vecs = la.eigh(i_ptcl_hmltn)
+        if i+1 == 1:
+            alpha = (vecs)
+            alpha_vals = vals
+        for c, useless in enumerate(vals):
+            evals.append(vals[c])
+            evecs.append(vecs[c])
+            
+    return evals, evecs, alpha, alpha_vals
+
+def total_energy(vals, ground_y_n='n'):
+    E=0
+    for v in vals:
+        if ground_y_n=='y':
+            if v<0:
+                E=E+v
+        else:
+            E=E+v
+    return E
+
+def delta_function(a,b):
+    d=[]
+    for i in range(len(a)):
+        if (a[i]-b[i])==0:
+            d.append(1000)
+            #print("DELTA TREBA DA BUDE VECE!!!!!!")
+        else:
+            x=(1/(a[i]-b[i]))
+            if x>1000:
+                x=1000
+                #print("DELTA TREBA DA BUDE MNOGO VECE!!!!!!")
+                #print(a[i]-b[i])
+            d.append(x)
+    return d
+
+def spectral_function(alfa):
+    evals, evecs, useless1, useless2=evals_and_evecs()
+    omega=np.arange(-100, 100, 0.01)
+    y=np.array(len(omega))
+    evals_bolji=[0]
+    for ev in evals:
+        evals_bolji.append(ev)
+    #evals_bolji=np.array(evals_bolji)
+    for i, useless in enumerate(evals):
+        y=y+np.array(delta_function(np.ones(len(omega))*(total_energy(evals, 'y')-total_energy(evals, 'n')), omega)) * (abs(evals_bolji@get_state_ac_operator(alfa, 'a')@ground_state_from_alpha_operator())**2)
+    for i, useless in enumerate(evals):
+        y=y+np.array(delta_function(np.ones(len(omega))*(total_energy(evals, 'n')-total_energy(evals, 'y')), omega)) * (abs(evals_bolji@get_state_ac_operator(alfa, 'c')@ground_state_from_alpha_operator())**2)
+    return y
 
 
 def main(parameters=None):
@@ -427,8 +492,6 @@ def main(parameters=None):
     op_hmltn = construct_hamiltonian_from_operators(parameters)
     # print('Hamiltonijan dobijen mnozenjem operatora:')
     # print(np.around(op_hmltn, 2), end='\n\n')
-    # alfa =[]
-    # alfa_vals=[]
     splitovani = split_hamiltonian_into_blocks(parameters)
     for i, i_ptcl_hmltn in enumerate(splitovani):
         print('Broj chestica = ', i+1, ':\n', sep='')
@@ -454,7 +517,12 @@ def main(parameters=None):
     # check_Wick_theorem(ll_eigvec)
 
     print("Ground state")
-    print(ground_state_from_alpha_operator(alfa, alfa_vals))
+    print(ground_state_from_alpha_operator())
+    print("All eigenvalues")
+    print(evals_and_evecs())
+    
+    plt.plot(np.arange(-100, 100, 0.01), spectral_function(alfa[0]))
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -470,6 +538,6 @@ if __name__ == '__main__':
     set_parameters(parameters)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    # main()
+    main()
 
-    find_fock_eigenstates()
+    
