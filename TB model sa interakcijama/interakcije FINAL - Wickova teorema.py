@@ -258,6 +258,24 @@ def split_hamiltonian_into_blocks(parameters=None):
     return out
 
 
+def find_fock_eigenstates(parameters=None):
+    if parameters is None:
+        parameters = get_parameter()
+    n_orb = parameters['n_orb']
+    n_dim = (parameters['max_occupancy'] + 1) ** n_orb
+
+    split_hmltn = split_hamiltonian_into_blocks()
+    eigvals, eigvecs = np.array([]), np.empty((0, n_dim))
+    for it in range(n_orb):
+        it_eigvals, it_eigvecs = la.eigh(split_hmltn[it])
+        it_eigvecs = np.transpose(it_eigvecs)
+        eigvals = np.append(eigvals, it_eigvals)
+        eigvecs = np.append(eigvecs, it_eigvecs, 0)
+
+    print(eigvals.shape, eigvecs.shape)
+    return eigvals, eigvecs
+
+
 def find_lowest_lying_eigenstate(parameters=None):
     if parameters is None:
         parameters = get_parameter()
@@ -452,9 +470,6 @@ if __name__ == '__main__':
     set_parameters(parameters)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    main()
+    # main()
 
-    # split_hmltn = split_hamiltonian_into_blocks()
-    # eigvecs, eigvals = [0] * n_orb, [0] * n_orb
-    # for it in range(n_orb):
-    #     eigvals[it], eigvecs[it] = la.eigh(split_hmltn[it])
+    find_fock_eigenstates()
