@@ -178,6 +178,23 @@ def get_ac_operator(i, a_or_c, parameters=None):
     return out
 
 
+def get_state_ac_operator(state, a_or_c, parameters=None):
+    if parameters is None:
+        parameters = get_parameter()
+    n_orb = parameters['L'] ** 2
+    n_dim = (parameters['max_occupancy'] + 1) ** (parameters['L'] ** 2)
+
+    orb_ops = np.empty((n_orb, n_dim, n_dim))
+    for it in range(n_orb):
+        orb_ops[it, :, :] = get_ac_operator(it, a_or_c, parameters)
+
+    state_op = np.zeros((n_dim, n_dim))
+    for it in range(n_orb):
+        state_op += state[it] * orb_ops[it, :, :]
+
+    return state_op
+
+
 def get_number_operator(i, parameters=None):
     if parameters is None:
         parameters = get_parameter()
@@ -399,7 +416,7 @@ def main(parameters=None):
     print(ll_eigvec)
     # print(op_hmltn @ ket(ll_eigvec))
     # print(op_hmltn @ ket(ll_eigvec) - ll_eigval * ket(ll_eigvec))
-    
+
     check_Wick_theorem(ll_eigvec)
 
 
@@ -417,3 +434,15 @@ if __name__ == '__main__':
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     main()
+
+    # fock_states = get_fock_states()
+    # splt_hmltn = split_hamiltonian_into_blocks()
+    # eigvals, eigvecs = [0] * n_orb, [0] * n_orb
+    # for it, hmltn in enumerate(splt_hmltn):
+    #     eigvals[it], eigvecs[it] = la.eigh(hmltn)
+    # print(eigvals[0])
+    # print(bra(eigvecs[0][0]) @ ket(eigvecs[0][2]))
+
+    # ll_eigval, ll_eigvec = find_lowest_lying_eigenstate()
+    # print(ll_eigval)
+    # print(ll_eigvec)
