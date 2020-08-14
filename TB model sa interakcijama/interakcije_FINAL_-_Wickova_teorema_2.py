@@ -379,7 +379,6 @@ def check_Wick_theorem(state_vec, parameters=None):
 def ground_state_from_alpha_operator(alpha, vals):
     ground_state = np.zeros(16)
     ground_state[0] = 1
-    alpha = np.transpose(alpha)
     for i, a in enumerate(alpha):
         if vals[i] < 0:
             ground_state = get_state_ac_operator(a, 'c') @ ground_state
@@ -418,7 +417,7 @@ def main(parameters=None):
         # print('Hamiltonijan:')
         # print(i_ptcl_hmltn, end='\n\n')
         evals, evecs = la.eigh(i_ptcl_hmltn)
-        if i+1 == 1:
+        if i + 1 == 1:
             alfa = (evecs)
             alfa_vals = evals
         print('Eigenvrednosti:')
@@ -433,7 +432,7 @@ def main(parameters=None):
     # print(op_hmltn @ ket(ll_eigvec))
     # print(op_hmltn @ ket(ll_eigvec) - ll_eigval * ket(ll_eigvec))
 
-    # check_Wick_theorem(ll_eigvec)
+    check_Wick_theorem(ll_eigvec)
 
     print("Ground state")
     print(ground_state_from_alpha_operator(alfa, alfa_vals))
@@ -453,8 +452,3 @@ if __name__ == '__main__':
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     main()
-
-    # split_hmltn = split_hamiltonian_into_blocks()
-    # eigvecs, eigvals = [0] * n_orb, [0] * n_orb
-    # for it in range(n_orb):
-    #     eigvals[it], eigvecs[it] = la.eigh(split_hmltn[it])
