@@ -360,24 +360,21 @@ def calc_spectral_function(el_state, parameters):
     ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
     omega = np.linspace(-100, 100, 20001)
     func = np.zeros(omega.shape)
+    print(ground_state)
 
-    el_ann = get_ac_operator(el_state, 'a', parameters)
+    el_ann = get_state_ac_operator(el_state, 'a', parameters)
     new_state = el_ann @ ground_state
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(ground_energy - eigvals[it], 2)
-        if not np.any(omega == en_diff):
-            print('nije pronadjeno odgovarajuce omega')
-        func[omega == en_diff] = ampl
+        func[omega == en_diff] += ampl
 
-    el_cr = get_ac_operator(el_state, 'c', parameters)
+    el_cr = get_state_ac_operator(el_state, 'c', parameters)
     new_state = el_cr @ ground_state
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(eigvals[it] - ground_energy, 2)
-        if not np.any(omega == en_diff):
-            print('nije pronadjeno odgovarajuce omega')
-        func[omega == en_diff] = ampl
+        func[omega == en_diff] += ampl
 
     return omega, func
 
@@ -452,6 +449,8 @@ if __name__ == '__main__':
 
     # main()
 
-    omega, func = calc_spectral_function(0, parameters)
+    ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
+
+    omega, func = calc_spectral_function([1, 0, 0, 0], parameters)
     plt.plot(omega, func)
     plt.show()
