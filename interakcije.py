@@ -378,6 +378,15 @@ def calc_spectral_function(el_state, parameters):
 
     return omega, func
 
+def total_spectral_function(parameters):
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    omega = np.linspace(-100, 100, 20001)
+    br_func=len(eigvals)
+    spec_func = np.zeros(omega.shape)
+    for i in range(br_func):
+        spec_func+=calc_spectral_function(eigvecs[i], parameters)[1]
+    return 1/br_func * spec_func
+
 
 def main(parameters=None):
     if parameters is None:
@@ -454,3 +463,6 @@ if __name__ == '__main__':
     omega, func = calc_spectral_function([1, 0, 0, 0], parameters)
     plt.plot(omega, func)
     plt.show()
+    
+    a=total_spectral_function(parameters)
+    print(a)
