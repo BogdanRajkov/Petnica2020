@@ -25,6 +25,15 @@ def ket(vec):
     return vec.reshape(-1, 1)
 
 
+def braket(vec1, vec2):
+    exp_value = bra(vec1) @ ket(vec2)
+    return np.float32(exp_value[0][0])
+
+
+def calc_exp(operator, vec):
+    return braket(vec, operator @ vec)
+
+
 def get_xy_of_i(L, i):
     # za dati indeks chvora nadji koordinate
     return i % L, i//L
@@ -35,11 +44,6 @@ def get_i_of_xy(L, x, y):
     x = x % L  # vrati x na opseg [0,L)
     y = y % L  # vrati y na opseg [0,L)
     return y*L + x
-
-
-def calc_exp(operator, vec):
-    exp_value = bra(vec) @ (operator @ ket(vec))
-    return np.float32(exp_value[0][0])
 
 
 # NE RADI!!!!! Prekopiraj onaj Jaksin za 2d sistem
@@ -88,55 +92,6 @@ def get_fock_states(parameters=None):
     return fock_states
 
 
-'''
-def construct_many_body_hamiltonian(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-    L = parameters['L']
-
-    fock_states = get_fock_states(parameters)
-    single_ptcl_hmltn = construct_single_particle_hamiltonian(parameters)
-    n_dim = (parameters['max_occupancy'] + 1) ** L
-    out = np.zeros((n_dim, n_dim))
-    for fsi, fs in enumerate(fock_states):
-        for i, n in enumerate(fs):
-            out[fsi, fsi] += single_ptcl_hmltn[i, i] * n
-            # dijagonalni element je suma potencijala svih popunjenih orbitala
-
-    # sada popunimo vandijagonalne elemente
-    for fs1i, fs1 in enumerate(fock_states):
-        ntot1 = np.sum(fs1)
-        for fs2i, fs2 in enumerate(fock_states):
-            # gledamo samo gornji trougao, donji popunjavamo po simetriji
-            if fs1i <= fs2i:
-                continue
-            ntot2 = np.sum(fs2)
-            # ako dva stanja nemaju isti broj chestica, nisu u vezi
-            if ntot1 != ntot2:
-                continue
-            diff = fs1-fs2
-            nzdiff = np.nonzero(diff)[0]
-            # ako se pomerilo vishe od jedne chestice, to nas ne interesuje
-            if nzdiff.size > 2:
-                continue
-            if np.sum(np.abs(diff)) > 2:
-                continue
-            pref = np.sqrt(fs2[nzdiff[1]]) * np.sqrt(fs1[nzdiff[0]])
-            out[fs1i, fs2i] = out[fs2i, fs1i] = \
-                pref * single_ptcl_hmltn[tuple(nzdiff)]
-            # nadjeno hoping amplitudu izmedju dva stanja
-            # izmedju kojih se mrdnula chestica
-
-    for orb1 in range(L):
-        orb2 = (orb1 + 1) % L
-        # biramo susede chestica, ali tako da svaki par izaberemo samo jednom
-        for fsi, fs in enumerate(fock_states):
-            out[fsi][fsi] += parameters['V'] * fs[orb1] * fs[orb2]
-
-    return out
-'''
-
-
 def get_ac_operator(i, a_or_c, parameters=None):
     # napravi operator kreacije/anihilacije na chvoru i
     if parameters is None:
@@ -183,13 +138,7 @@ def get_state_ac_operator(state, a_or_c, parameters=None):
         parameters = get_parameter()
     n_orb = parameters['L'] ** 2
     n_dim = (parameters['max_occupancy'] + 1) ** (parameters['L'] ** 2)
-    '''state2=[]
-    for s in state:
-        if s!=0:
-            state2.append(s)
-    state=state2
-    print(state)'''
-    
+
     orb_ops = np.empty((n_orb, n_dim, n_dim))
     for it in range(n_orb):
         orb_ops[it, :, :] = get_ac_operator(it, a_or_c, parameters)
@@ -256,9 +205,9 @@ def split_hamiltonian_into_blocks(parameters=None):
 
     fock_states = get_fock_states(parameters)
     many_body_hmltn = construct_hamiltonian_from_operators(parameters)
-    out = [0] * n_orb
-    for i in range(n_orb):
-        ind = np.nonzero(np.sum(fock_states, axis=1) == i+1)[0]
+    out = [0] * (n_orb+1)
+    for i in range(n_orb+1):
+        ind = np.nonzero(np.sum(fock_states, axis=1) == i)[0]
         ind2d = tuple(np.meshgrid(ind, ind))
         out[i] = many_body_hmltn[ind2d]
     return out
@@ -269,41 +218,27 @@ def find_fock_eigenstates(parameters=None):
         parameters = get_parameter()
     n_orb = parameters['n_orb']
     n_dim = (parameters['max_occupancy'] + 1) ** n_orb
+    fock_states = get_fock_states()
 
     split_hmltn = split_hamiltonian_into_blocks()
     eigvals, eigvecs = np.array([]), np.empty((0, n_dim))
-    for it in range(n_orb):
-        it_eigvals, it_eigvecs = la.eigh(split_hmltn[it])
-        it_eigvecs = np.transpose(it_eigvecs)
+    for it in range(n_orb+1):
+        it_eigvals, it_eigvecs_trim = la.eigh(split_hmltn[it])
+        it_eigvecs_trim = np.transpose(it_eigvecs_trim)
         eigvals = np.append(eigvals, it_eigvals)
+        it_eigvecs = np.zeros((it_eigvecs_trim.shape[0], n_dim))
+        for jt, el in enumerate(it_eigvecs_trim):
+            it_eigvecs[jt][np.sum(fock_states, axis=1) == it] = el
         eigvecs = np.append(eigvecs, it_eigvecs, 0)
 
-    print(eigvals.shape, eigvecs.shape)
+    # print(eigvals.shape, eigvecs.shape)
     return eigvals, eigvecs
 
 
 def find_lowest_lying_eigenstate(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-    n_orb = parameters['n_orb']
-    fock_states = get_fock_states(parameters)
-    n_dim = len(fock_states)
-    split_hmltn = split_hamiltonian_into_blocks(parameters)
-
-    eigvals, eigvecs = [0] * n_orb, [0] * n_orb
-    for it in range(n_orb):
-        eigvals[it], eigvecs[it] = la.eigh(split_hmltn[it])
-    block_ll_eigvals = [el[0] for el in eigvals]
-    ll_eigval = min(block_ll_eigvals)
-    ll_eigval_ind = block_ll_eigvals.index(ll_eigval)
-    ll_eigvec_trim = eigvecs[ll_eigval_ind][:, 0]
-    # ovo je ll eigenvector, ali je trenutno samo
-    # u Hilbertovom prostoru sa odgovarajucim brojem chestica
-    ll_eigvec = np.zeros(n_dim)
-    ind = np.nonzero(np.sum(fock_states, axis=1) == ll_eigval_ind+1)[0]
-    for it, el in enumerate(ind):
-        ll_eigvec[el] = ll_eigvec_trim[it]
-    return ll_eigval, ll_eigvec
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    ll_ind = np.argmin(eigvals)
+    return eigvals[ll_ind], eigvecs[ll_ind]
 
 
 def plot_ntot_on_eps_t_graph(parameters=None, plt_density=21):
@@ -400,74 +335,51 @@ def check_Wick_theorem(state_vec, parameters=None):
         print("Postoje verovatnoće koje se ne poklapaju.")
 
 
-def ground_state_from_alpha_operator():
-    ground_state = np.zeros(16)
+def ground_state_from_alpha_operator(parameters):
+    n_orb = parameters['n_orb']
+    fock_states = get_fock_states()
+    n_dim = fock_states.shape[0]
+
+    eigvals, eigvecs = find_fock_eigenstates()
+    single_ptcl = np.sum(fock_states, axis=1) == 1
+    # prvo izvuchemo stanja koja odgovaraju jednochestichnom prostoru
+    # a zatim izvucemo deo tih stanja koji odg jednochestichnom prostoru
+    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
+    sptcl_eigvals = eigvals[single_ptcl]
+
+    ground_state = np.zeros(n_dim)
     ground_state[0] = 1
-    evals, evecs, alpha, vals=evals_and_evecs()
-    print("funkcija gorund state alpha")
-    print(vals)
-    alpha = np.transpose(alpha)
-    print('sta je ovo')
-    print(alpha)
-    for i, a in enumerate(alpha):
-        if vals[i] < 0:
-            ground_state = get_state_ac_operator(a, 'c') @ ground_state
-    
-    return ground_state
+    for state in sptcl_eigvecs[sptcl_eigvals < 0]:
+        ground_state = get_state_ac_operator(state, 'c') @ ground_state
 
-def evals_and_evecs():
-    evals=[]
-    evecs=[]
-    splitovani = split_hamiltonian_into_blocks(parameters)
-    for i, i_ptcl_hmltn in enumerate(splitovani):
-        vals, vecs = la.eigh(i_ptcl_hmltn)
-        if i+1 == 1:
-            alpha = (vecs)
-            alpha_vals = vals
-        for c, useless in enumerate(vals):
-            evals.append(vals[c])
-            evecs.append(vecs[c])
-            
-    return evals, evecs, alpha, alpha_vals
+    return np.sum(sptcl_eigvals[sptcl_eigvals < 0]), ground_state
 
-def total_energy(vals, ground_y_n='n'):
-    E=0
-    for v in vals:
-        if ground_y_n=='y':
-            if v<0:
-                E=E+v
-        else:
-            E=E+v
-    return E
 
-def delta_function(a,b):
-    d=[]
-    for i in range(len(a)):
-        if (a[i]-b[i])==0:
-            d.append(1000)
-            #print("DELTA TREBA DA BUDE VECE!!!!!!")
-        else:
-            x=(1/(a[i]-b[i]))
-            if x>1000:
-                x=1000
-                #print("DELTA TREBA DA BUDE MNOGO VECE!!!!!!")
-                #print(a[i]-b[i])
-            d.append(x)
-    return d
+def calc_spectral_function(el_state, parameters):
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
+    omega = np.linspace(-100, 100, 20001)
+    func = np.zeros(omega.shape)
 
-def spectral_function(alfa):
-    evals, evecs, useless1, useless2=evals_and_evecs()
-    omega=np.arange(-100, 100, 0.01)
-    y=np.array(len(omega))
-    evals_bolji=[0]
-    for ev in evals:
-        evals_bolji.append(ev)
-    #evals_bolji=np.array(evals_bolji)
-    for i, useless in enumerate(evals):
-        y=y+np.array(delta_function(np.ones(len(omega))*(total_energy(evals, 'y')-total_energy(evals, 'n')), omega)) * (abs(evals_bolji@get_state_ac_operator(alfa, 'a')@ground_state_from_alpha_operator())**2)
-    for i, useless in enumerate(evals):
-        y=y+np.array(delta_function(np.ones(len(omega))*(total_energy(evals, 'n')-total_energy(evals, 'y')), omega)) * (abs(evals_bolji@get_state_ac_operator(alfa, 'c')@ground_state_from_alpha_operator())**2)
-    return y
+    el_ann = get_ac_operator(el_state, 'a', parameters)
+    new_state = el_ann @ ground_state
+    for it in range(len(eigvals)):
+        ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
+        en_diff = np.around(ground_energy - eigvals[it], 2)
+        if not np.any(omega == en_diff):
+            print('nije pronadjeno odgovarajuce omega')
+        func[omega == en_diff] = ampl
+
+    el_cr = get_ac_operator(el_state, 'c', parameters)
+    new_state = el_cr @ ground_state
+    for it in range(len(eigvals)):
+        ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
+        en_diff = np.around(eigvals[it] - ground_energy, 2)
+        if not np.any(omega == en_diff):
+            print('nije pronadjeno odgovarajuce omega')
+        func[omega == en_diff] = ampl
+
+    return omega, func
 
 
 def main(parameters=None):
@@ -519,9 +431,9 @@ def main(parameters=None):
     print("Ground state")
     print(ground_state_from_alpha_operator())
     print("All eigenvalues")
-    print(evals_and_evecs())
-    
-    plt.plot(np.arange(-100, 100, 0.01), spectral_function(alfa[0]))
+    print(find_fock_eigenstates())
+
+    plt.plot(np.arange(-100, 100, 0.01), calc_spectral_function(0, parameters))
     plt.show()
 
 
@@ -538,6 +450,8 @@ if __name__ == '__main__':
     set_parameters(parameters)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    main()
+    # main()
 
-    
+    omega, func = calc_spectral_function(0, parameters)
+    plt.plot(omega, func)
+    plt.show()
