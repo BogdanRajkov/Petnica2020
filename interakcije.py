@@ -360,33 +360,35 @@ def calc_spectral_function(el_state, parameters):
     ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
     omega = np.linspace(-100, 100, 20001)
     func = np.zeros(omega.shape)
-    print(ground_state)
 
     el_ann = get_state_ac_operator(el_state, 'a', parameters)
     new_state = el_ann @ ground_state
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(ground_energy - eigvals[it], 2)
-        func[omega == en_diff] += ampl
+        func[omega == en_diff] += np.around(ampl, 6)
 
     el_cr = get_state_ac_operator(el_state, 'c', parameters)
     new_state = el_cr @ ground_state
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(eigvals[it] - ground_energy, 2)
-        func[omega == en_diff] += ampl
+        func[omega == en_diff] += np.around(ampl, 6)
 
     return omega, func
 
 
 def total_spectral_function(parameters):
     eigvals, eigvecs = find_fock_eigenstates(parameters)
+    single_ptcl = np.sum(fock_states, axis=1) == 1
+    sptcl_eigvals = eigvals[single_ptcl]
+    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
     omega = np.linspace(-100, 100, 20001)
-    br_func = len(eigvals)
+    br_func = len(sptcl_eigvals)
     spec_func = np.zeros(omega.shape)
     for i in range(br_func):
-        spec_func += calc_spectral_function(eigvecs[i], parameters)[1]
-    return 1/br_func * spec_func
+        spec_func += calc_spectral_function(sptcl_eigvecs[i], parameters)[1]
+    return omega, 1/br_func * spec_func
 
 
 def main(parameters=None):
@@ -460,10 +462,12 @@ if __name__ == '__main__':
     # main()
 
     fock_states = get_fock_states(parameters)
-    eigvals, eigvecs = get_fock_eigenstates(parameters)
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
     single_ptcl = np.sum(fock_states, axis=1) == 1
     sptcl_eigvals = eigvals[single_ptcl]
     sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
     omega, func = total_spectral_function(parameters)
     print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
-    print('pikovi spektralne funkcije:', func[func != 0])
+    print('pikovi spektralne funkcije:', omega[func != 0])
+    plt.plot(omega, func)
+    plt.show()
