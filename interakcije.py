@@ -449,8 +449,11 @@ if __name__ == '__main__':
 
     # main()
 
-    ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
-
-    omega, func = calc_spectral_function([1, 0, 0, 0], parameters)
-    plt.plot(omega, func)
-    plt.show()
+    fock_states = get_fock_states(parameters)
+    eigvals, eigvecs = get_fock_eigenstates(parameters)
+    single_ptcl = np.sum(fock_states, axis=1) == 1
+    sptcl_eigvals = eigvals[single_ptcl]
+    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
+    omega, func = total_spectral_function(parameters)
+    print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
+    print('pikovi spektralne funkcije:', func[func != 0])
