@@ -366,14 +366,20 @@ def calc_spectral_function(el_state, parameters):
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(ground_energy - eigvals[it], 2)
-        func[omega == en_diff] += np.around(ampl, 6)
+        if not np.any(np.abs(omega - en_diff) < 1e-3):
+            print('greska')
+            print(en_diff, ampl)
+        func[np.abs(omega - en_diff) < 1e-3] += np.around(ampl, 6)
 
     el_cr = get_state_ac_operator(el_state, 'c', parameters)
     new_state = el_cr @ ground_state
     for it in range(len(eigvals)):
         ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
         en_diff = np.around(eigvals[it] - ground_energy, 2)
-        func[omega == en_diff] += np.around(ampl, 6)
+        if not np.any(np.abs(omega - en_diff) < 1e-3):
+            print('greska')
+            print(en_diff, ampl)
+        func[np.abs(omega - en_diff) < 1e-3] += np.around(ampl, 6)
 
     return omega, func
 
@@ -447,7 +453,7 @@ def main(parameters=None):
 
 
 if __name__ == '__main__':
-    parameters = {'t': -2, 'eps': -3, 'V': 0, 'L': 2,
+    parameters = {'t': -2, 'eps': -3, 'V': 0.1, 'L': 2,
                   'max_occupancy': 1, 'statistic': 'Fermion'}
     parameters['n_orb'] = parameters['L'] ** 2
     n_orb = parameters['n_orb']
@@ -469,5 +475,6 @@ if __name__ == '__main__':
     omega, func = total_spectral_function(parameters)
     print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
     print('pikovi spektralne funkcije:', omega[func != 0])
+    print('norma:', np.sum(func))
     plt.plot(omega, func)
     plt.show()
