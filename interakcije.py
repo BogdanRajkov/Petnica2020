@@ -370,8 +370,29 @@ def total_spectral_function(parameters):
     return omega, 1/br_func * spec_func
 
 
+def constr_time_propagator(t, parameters):
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    n_dim = len(eigvals)
+    site_to_eigenstate = np.empty((n_dim, n_dim))
+    eigenstate_to_site = np.empty((n_dim, n_dim))
+
+    time_prop = np.zeros((n_dim, n_dim))
+    di = np.diag_indices(n_dim)
+    time_prop[di] = eigvals
+
+    for it in range(n_dim):
+        site_to_eigenstate[:, it] = eigvecs[it]
+    site_vec = np.zeros(n_dim)
+    for it in range(n_dim):
+        site_vec[it] += 1
+        eigenstate_to_site[:, it] = site_to_eigenstate @ site_vec
+        site_vec[it] -= 1
+
+    return eigenstate_to_site @ time_prop @ site_to_eigenstate
+
+
 def main(parameters):
-    print('Parametri:', parametri)
+    print('Parametri:', parameters)
 
     fock_states = get_fock_states(parameters)
     print('Fokova stanja:')
@@ -402,6 +423,7 @@ if __name__ == '__main__':
                   'max_occupancy': 1, 'statistic': 'Fermion'}
     parameters['n_orb'] = parameters['L'] ** 2
     n_orb = parameters['n_orb']
+    n_dim = (parameters['max_occupancy'] + 1) ** n_orb
 
     ampl = 0
     noise = np.random.uniform(-ampl, ampl, parameters['n_orb'])
@@ -410,7 +432,7 @@ if __name__ == '__main__':
     set_parameters(parameters)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    main(parameters)
+    # main(parameters)
 
     fock_states = get_fock_states(parameters)
     eigvals, eigvecs = find_fock_eigenstates(parameters)
@@ -418,8 +440,14 @@ if __name__ == '__main__':
     sptcl_eigvals = eigvals[single_ptcl]
     sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
     omega, func = total_spectral_function(parameters)
-    print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
-    print('pikovi spektralne funkcije:', omega[func != 0])
-    print('norma:', np.sum(func))
-    plt.plot(omega, func)
-    plt.show()
+    # print('svojstvene energije jednochestichnog hamiltonijana:',
+    # sptcl_eigvals)
+    # print('pikovi spektralne funkcije:', omega[func != 0])
+    # print('norma:', np.sum(func))
+    # plt.plot(omega, func)
+    # plt.show()
+
+    basis_change = np.empty((n_dim, n_dim))
+    for i in range(n_dim):
+        basis_change[:, i] = eigvecs[i]
+    print(basis_change @ ket(eigvecs[0] + eigvecs[-1]))
