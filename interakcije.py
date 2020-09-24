@@ -369,9 +369,26 @@ def total_spectral_function(parameters):
         spec_func += calc_spectral_function(sptcl_eigvecs[i], parameters)[1]
     return omega, 1/br_func * spec_func
 
+def step_function(x, parameters):
+    if x>=0:
+        return 1
+    else:
+        return 0
+
+def green_function(alpha, beta, parameters):
+    step_log = -2          # log10 od razlike uzastopnih chlanova niza omega
+    step = 10 ** step_log  # u ovom slucaju razlika uzastopnih je 0.01
+    g_max = 100  # spektralnu f racunamo na opsegu [-omega_max, omega_max]
+    # broj tacaka takav da razlika izmedju uzastopnih bude tacno step
+    no_points = 2 * g_max * 10**(-step_log) + 1
+    p = g = np.linspace(-g_max, g_max, no_points)
+    ground_energy, ground_state=constr_ground_state_from_operators(parameters)
+    for i in range(len(g)):
+        g[i]=-1j*step_function(i, parameters)*(braket(bra(ground_state)*np.exp(1j*i*ground_energy)*get_state_ac_operator(alpha,'a', parameters),np.exp(-1j*i*ground_energy)*get_state_ac_operator(beta, 'c', parameters)*ket(ground_state)) + braket(bra(ground_state)*get_state_ac_operator(beta,'c', parameters)*np.exp(1j*i*ground_energy),get_state_ac_operator(alpha, 'a', parameters)*np.exp(-1j*i*ground_energy)*ket(ground_state)))
+    return p, g
 
 def main(parameters):
-    print('Parametri:', parametri)
+    print('Parametri:', parameters)
 
     fock_states = get_fock_states(parameters)
     print('Fokova stanja:')
@@ -411,7 +428,7 @@ if __name__ == '__main__':
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     main(parameters)
-
+'''
     fock_states = get_fock_states(parameters)
     eigvals, eigvecs = find_fock_eigenstates(parameters)
     single_ptcl = np.sum(fock_states, axis=1) == 1
@@ -423,3 +440,12 @@ if __name__ == '__main__':
     print('norma:', np.sum(func))
     plt.plot(omega, func)
     plt.show()
+'''
+plt.plot(green_function([1,0,0,0], [1,0,0,0], parameters))
+plt.show()
+plt.plot(green_function([0,1,0,0], [0,1,0,0], parameters))
+plt.show()
+plt.plot(green_function([0,0,1,0], [0,0,1,0], parameters))
+plt.show()
+plt.plot(green_function([0,0,0,1], [0,0,0,1], parameters))
+plt.show()
