@@ -47,9 +47,7 @@ def get_i_of_xy(L, x, y):
 
 
 # NE RADI!!!!! Prekopiraj onaj Jaksin za 2d sistem
-def draw_cluster(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
+def draw_cluster(parameters):
     L = parameters['L']
 
     print('---', end='')
@@ -58,9 +56,7 @@ def draw_cluster(parameters=None):
     print()
 
 
-def construct_single_particle_hamiltonian(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
+def construct_single_particle_hamiltonian(parameters):
     L = parameters['L']
     n_orb = parameters['n_orb']
     out = np.zeros((n_orb, n_orb))
@@ -75,10 +71,7 @@ def construct_single_particle_hamiltonian(parameters=None):
     return out
 
 
-def get_fock_states(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-
+def get_fock_states(parameters):
     fock_states = list(
         itertools.product(range(parameters['max_occupancy'] + 1),
                           repeat=parameters['L']**2))
@@ -92,10 +85,8 @@ def get_fock_states(parameters=None):
     return fock_states
 
 
-def get_ac_operator(i, a_or_c, parameters=None):
+def get_ac_operator(i, a_or_c, parameters):
     # napravi operator kreacije/anihilacije na chvoru i
-    if parameters is None:
-        parameters = get_parameter()
     max_occupancy = parameters['max_occupancy']
     statistic = parameters['statistic']
 
@@ -133,9 +124,7 @@ def get_ac_operator(i, a_or_c, parameters=None):
     return out
 
 
-def get_state_ac_operator(state, a_or_c, parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
+def get_state_ac_operator(state, a_or_c, parameters):
     n_orb = parameters['L'] ** 2
     n_dim = (parameters['max_occupancy'] + 1) ** (parameters['L'] ** 2)
 
@@ -150,21 +139,16 @@ def get_state_ac_operator(state, a_or_c, parameters=None):
     return state_op
 
 
-def get_number_operator(i, parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-
+def get_number_operator(i, parameters):
     a_op = get_ac_operator(i, 'a', parameters)
     c_op = get_ac_operator(i, 'c', parameters)
 
     return c_op @ a_op
 
 
-def construct_hamiltonian_from_operators(parameters=None):
+def construct_hamiltonian_from_operators(parameters):
     # napravi many-body hamiltonian koristecci operatore kreacije i anihilacije
-    if parameters is None:
-        parameters = get_parameter()
-    L = parameters['L']
+    L, V = parameters['L'], parameters['V']
     Norb = L*L
     fock_states = get_fock_states(parameters)
     n_dim = len(fock_states)
@@ -188,19 +172,13 @@ def construct_hamiltonian_from_operators(parameters=None):
                 # out += parameters['V'] * (c[i] @ a[i]) @ \
             # (c[(i+1) % Norb] @ a[(i+1) % Norb])
 
-                out += 0.5 * parameters['V']*np.einsum('ij,jk,kl,lm->im',
-                                                       get_ac_operator(i, 'c'),
-                                                       get_ac_operator(i, 'a'),
-                                                       get_ac_operator(j, 'c'),
-                                                       get_ac_operator(j, 'a')
-                                                       )
+                out += 0.5 * V * np.einsum('ij,jk,kl,lm->im',
+                                           c[i], a[i], c[j], a[j])
         # print('Procenat izvrsenja DRUGOG fora je ' + str((i+1)*100/Norb))
     return out
 
 
-def split_hamiltonian_into_blocks(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
+def split_hamiltonian_into_blocks(parameters):
     n_orb = parameters['n_orb']
 
     fock_states = get_fock_states(parameters)
@@ -213,14 +191,12 @@ def split_hamiltonian_into_blocks(parameters=None):
     return out
 
 
-def find_fock_eigenstates(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
+def find_fock_eigenstates(parameters):
     n_orb = parameters['n_orb']
     n_dim = (parameters['max_occupancy'] + 1) ** n_orb
-    fock_states = get_fock_states()
+    fock_states = get_fock_states(parameters)
 
-    split_hmltn = split_hamiltonian_into_blocks()
+    split_hmltn = split_hamiltonian_into_blocks(parameters)
     eigvals, eigvecs = np.array([]), np.empty((0, n_dim))
     for it in range(n_orb+1):
         it_eigvals, it_eigvecs_trim = la.eigh(split_hmltn[it])
@@ -235,15 +211,13 @@ def find_fock_eigenstates(parameters=None):
     return eigvals, eigvecs
 
 
-def find_lowest_lying_eigenstate(parameters=None):
+def find_lowest_lying_eigenstate(parameters):
     eigvals, eigvecs = find_fock_eigenstates(parameters)
     ll_ind = np.argmin(eigvals)
     return eigvals[ll_ind], eigvecs[ll_ind]
 
 
-def plot_ntot_on_eps_t_graph(parameters=None, plt_density=21):
-    if parameters is None:
-        parameters = get_parameter()
+def plot_ntot_on_eps_t_graph(parameters, plt_density=21):
     fock_states = get_fock_states(parameters)
     num_op = [get_number_operator(i) for i in range(parameters['L']**2)]
     num_op = np.array(num_op)
@@ -279,10 +253,7 @@ def plot_ntot_on_eps_t_graph(parameters=None, plt_density=21):
     plt.show()
 
 
-def plot_exp_neighbors(parameters=None, V_max=101):
-    if parameters is None:
-        parameters = get_parameter()
-
+def plot_exp_neighbors(parameters, V_max=101):
     V_arr = np.linspace(0, V_max, V_max+1)
     exp_arr = np.zeros(V_arr.shape)
     for it, V in enumerate(V_arr):
@@ -302,19 +273,16 @@ def plot_exp_neighbors(parameters=None, V_max=101):
     plt.show()
 
 
-def check_Wick_theorem(state_vec, parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-
-    fock_states = get_fock_states()
+def check_Wick_theorem(state_vec, parameters):
+    fock_states = get_fock_states(parameters)
     n_dim = fock_states.shape[0]
     hmltn = construct_single_particle_hamiltonian()
 
     cr_ops = np.empty((n_orb, n_dim, n_dim))
     an_ops = np.empty((n_orb, n_dim, n_dim))
     for i in range(n_orb):
-        an_ops[i, :, :] = get_ac_operator(i, 'a')
-        cr_ops[i, :, :] = get_ac_operator(i, 'c')
+        an_ops[i, :, :] = get_ac_operator(i, 'a', parameters)
+        cr_ops[i, :, :] = get_ac_operator(i, 'c', parameters)
 
     ok = True
     print("Provera važenja Wickove teoreme:")
@@ -335,12 +303,12 @@ def check_Wick_theorem(state_vec, parameters=None):
         print("Postoje verovatnoće koje se ne poklapaju.")
 
 
-def ground_state_from_alpha_operator(parameters):
+def constr_ground_state_from_operators(parameters):
     n_orb = parameters['n_orb']
-    fock_states = get_fock_states()
+    fock_states = get_fock_states(parameters)
     n_dim = fock_states.shape[0]
 
-    eigvals, eigvecs = find_fock_eigenstates()
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
     single_ptcl = np.sum(fock_states, axis=1) == 1
     # prvo izvuchemo stanja koja odgovaraju jednochestichnom prostoru
     # a zatim izvucemo deo tih stanja koji odg jednochestichnom prostoru
@@ -350,36 +318,41 @@ def ground_state_from_alpha_operator(parameters):
     ground_state = np.zeros(n_dim)
     ground_state[0] = 1
     for state in sptcl_eigvecs[sptcl_eigvals < 0]:
-        ground_state = get_state_ac_operator(state, 'c') @ ground_state
+        cr_op = get_state_ac_operator(state, 'c', parameters)
+        ground_state = cr_op @ ground_state
 
     return np.sum(sptcl_eigvals[sptcl_eigvals < 0]), ground_state
 
 
 def calc_spectral_function(el_state, parameters):
     eigvals, eigvecs = find_fock_eigenstates(parameters)
-    ground_energy, ground_state = ground_state_from_alpha_operator(parameters)
-    omega = np.linspace(-100, 100, 20001)
+    ground_energy, ground_state = \
+        constr_ground_state_from_operators(parameters)
+    step_log = -2          # log10 od razlike uzastopnih chlanova niza omega
+    step = 10 ** step_log  # u ovom slucaju razlika uzastopnih je 0.01
+    omega_max = 100  # spektralnu f racunamo na opsegu [-omega_max, omega_max]
+    # broj tacaka takav da razlika izmedju uzastopnih bude tacno step
+    no_points = 2 * omega_max * 10**(-step_log) + 1
+    omega = np.linspace(-omega_max, omega_max, no_points)
+    if (np.abs(omega[1] - omega[0] - step) > 1e-10):
+        raise ValueError('los korak')
     func = np.zeros(omega.shape)
 
-    el_ann = get_state_ac_operator(el_state, 'a', parameters)
-    new_state = el_ann @ ground_state
-    for it in range(len(eigvals)):
-        ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
-        en_diff = np.around(ground_energy - eigvals[it], 2)
-        if not np.any(np.abs(omega - en_diff) < 1e-3):
-            print('greska')
-            print(en_diff, ampl)
-        func[np.abs(omega - en_diff) < 1e-3] += np.around(ampl, 6)
-
+    el_an = get_state_ac_operator(el_state, 'a', parameters)
     el_cr = get_state_ac_operator(el_state, 'c', parameters)
-    new_state = el_cr @ ground_state
+    an_state = el_an @ ground_state
+    cr_state = el_cr @ ground_state
     for it in range(len(eigvals)):
-        ampl = np.abs(braket(eigvecs[it], new_state)) ** 2
-        en_diff = np.around(eigvals[it] - ground_energy, 2)
-        if not np.any(np.abs(omega - en_diff) < 1e-3):
+        an_ampl = np.abs(braket(eigvecs[it], an_state)) ** 2
+        cr_ampl = np.abs(braket(eigvecs[it], cr_state)) ** 2
+        en_diff = ground_energy - eigvals[it]
+        # zaokruzujemo en_diff na tacnost koju ima i omega
+        en_diff = np.around(en_diff, -step_log)
+        omega_ind = np.argwhere(np.abs(omega - en_diff) < step/10)[0]
+        if len(omega_ind) != 1:
             print('greska')
-            print(en_diff, ampl)
-        func[np.abs(omega - en_diff) < 1e-3] += np.around(ampl, 6)
+            print(en_diff)
+        func[omega_ind[0]] += np.around(cr_ampl + an_ampl, 4)
 
     return omega, func
 
@@ -397,63 +370,35 @@ def total_spectral_function(parameters):
     return omega, 1/br_func * spec_func
 
 
-def main(parameters=None):
-    if parameters is None:
-        parameters = get_parameter()
-
-    single_ptcl_hmltn = construct_single_particle_hamiltonian(parameters)
-    print('Jednochestichni Hamiltonijan:')
-    print(single_ptcl_hmltn, end='\n\n')
+def main(parameters):
+    print('Parametri:', parametri)
 
     fock_states = get_fock_states(parameters)
     print('Fokova stanja:')
     print(fock_states, end='\n\n')
 
-    # c0 = get_ac_operator(0, 'c', parameters)
-    # print('Operator kreacije za prvu cesticu:')
-    # print(c0)
-    # a0 = get_ac_operator(0, 'a', parameters)
-    # print('Operator anihilacije za prvu cesticu:')
-    # print(a0, end='\n\n')
-
     op_hmltn = construct_hamiltonian_from_operators(parameters)
-    # print('Hamiltonijan dobijen mnozenjem operatora:')
-    # print(np.around(op_hmltn, 2), end='\n\n')
-    splitovani = split_hamiltonian_into_blocks(parameters)
-    for i, i_ptcl_hmltn in enumerate(splitovani):
-        print('Broj chestica = ', i+1, ':\n', sep='')
+    print('Hamiltonijan dobijen mnozenjem operatora:')
+    print(np.around(op_hmltn, 2), end='\n\n')
 
-        # print('Hamiltonijan:')
-        # print(i_ptcl_hmltn, end='\n\n')
-        evals, evecs = la.eigh(i_ptcl_hmltn)
-        if i+1 == 1:
-            alfa = (evecs)
-            alfa_vals = evals
-        print('Eigenvrednosti:')
-        print(evals, end='\n\n')
-        print('Eigenvektori:')
-        print(evecs, end='\n\n')
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    print('Svojstvene energije:', eigvals)
+    print('Svojstvena stanja:', eigvecs, sep='\n', end='\n\n')
 
-    ll_eigval, ll_eigvec = find_lowest_lying_eigenstate(parameters)
+    ll_eigval, ll_eigvec = constr_ground_state_from_operators(parameters)
     print('Najniza svojstvena energija:', ll_eigval)
     print('Odgovarajuce svojstveno stanje:')
     print(ll_eigvec)
-    # print(op_hmltn @ ket(ll_eigvec))
-    # print(op_hmltn @ ket(ll_eigvec) - ll_eigval * ket(ll_eigvec))
 
     # check_Wick_theorem(ll_eigvec)
 
-    print("Ground state")
-    print(ground_state_from_alpha_operator())
-    print("All eigenvalues")
-    print(find_fock_eigenstates())
-
-    plt.plot(np.arange(-100, 100, 0.01), calc_spectral_function(0, parameters))
+    omega, func = calc_spectral_function([1, 0, 0, 0], parameters)
+    plt.plot(omega, func)
     plt.show()
 
 
 if __name__ == '__main__':
-    parameters = {'t': -2, 'eps': -3, 'V': 0.1, 'L': 2,
+    parameters = {'t': -2, 'eps': -3, 'V': 10, 'L': 2,
                   'max_occupancy': 1, 'statistic': 'Fermion'}
     parameters['n_orb'] = parameters['L'] ** 2
     n_orb = parameters['n_orb']
@@ -465,7 +410,7 @@ if __name__ == '__main__':
     set_parameters(parameters)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    # main()
+    main(parameters)
 
     fock_states = get_fock_states(parameters)
     eigvals, eigvecs = find_fock_eigenstates(parameters)
