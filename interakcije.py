@@ -358,6 +358,7 @@ def calc_spectral_function(el_state, parameters):
 
 
 def total_spectral_function(parameters):
+    fock_states = get_fock_states(parameters)
     eigvals, eigvecs = find_fock_eigenstates(parameters)
     single_ptcl = np.sum(fock_states, axis=1) == 1
     sptcl_eigvals = eigvals[single_ptcl]
@@ -384,11 +385,18 @@ def green_function(alpha, beta, parameters):
     # broj tacaka takav da razlika izmedju uzastopnih bude tacno step
     no_points = 2 * g_max * 10**(-step_log) + 1
     p = np.linspace(-g_max, g_max, no_points)
-    g = np.linspace(-g_max, g_max, no_points)
+    g = np.zeros_like(p)
     ground_energy, ground_state = \
         constr_ground_state_from_operators(parameters)
-    for i in range(len(g)):
-        g[i] = -1j * step_function(i, parameters) * (braket(bra(ground_state) * np.exp(1j*i*ground_energy)*get_state_ac_operator(alpha, 'a', parameters), np.exp(-1j*i*ground_energy)*get_state_ac_operator(beta, 'c', parameters) * ket(ground_state)) + braket(bra(ground_state)*get_state_ac_operator(beta, 'c', parameters)*np.exp(1j*i*ground_energy), get_state_ac_operator(alpha, 'a', parameters)*np.exp(-1j*i*ground_energy)*ket(ground_state)))
+    ground_bra, ground_ket = bra(ground_state), ket(ground_ket)
+    an_alpha = get_state_ac_operator(alpha, 'a', parameters)
+    cr_beta = get_state_ac_operator(beta, 'c', parameters)
+    for it, t in enumerate(p):
+        g[it] = -1j * step_function(t, parameters) * \
+            (braket(bra(ground_state) * np.exp(1j*i*ground_energy) * get_state_ac_operator(alpha, 'a', parameters),
+                    np.exp(-1j*i*ground_energy)*get_state_ac_operator(beta, 'c', parameters) * ket(ground_state))
+                + braket(bra(ground_state)*get_state_ac_operator(beta, 'c', parameters)*np.exp(1j*i*ground_energy),
+                         get_state_ac_operator(alpha, 'a', parameters)*np.exp(-1j*i*ground_energy) * ket(ground_state)))
     return p, g
 
 
