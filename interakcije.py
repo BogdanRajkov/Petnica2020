@@ -460,10 +460,10 @@ def main(parameters):
 
 
 if __name__ == '__main__':
-    parameters = {'t': -2, 'eps': -3, 'V': 10, 'L': 2,
+    basic_info = {'t': -2, 'eps': -3, 'V': 0, 'L': 2,
                   'max_occupancy': 1, 'statistic': 'Fermion'}
 
-    set_parameters(parameters)
+    parameters = SystemData(basic_info)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     # main(parameters)
@@ -477,6 +477,10 @@ if __name__ == '__main__':
     print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
     print('pikovi spektralne funkcije:', omega[func != 0])
     print('norma:', np.sum(func))
+
+    plt.title('Totalna spektralna funkcija')
+    plt.xlabel('$\\omega$')
+    plt.ylabel('$\\rho(\\omega)$')
     plt.plot(omega, func)
     plt.show()
     '''
