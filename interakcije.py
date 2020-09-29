@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.linalg as la
+from numpy.random import uniform
 import itertools
 import matplotlib.pyplot as plt
 
@@ -8,8 +9,10 @@ class SystemData:
     def __init__(self, parameters):
         """
         initialise system with some basic info contained in a dictionary
-        example: parameters = {'t': -2, 'eps': -3, 'V': 10, 'L': 2,
-                  'max_occupancy': 2, 'statistic': 'Boson'}
+        example:
+        parameters = {'t': -2, 'eps': -3, 'V': 10, 'L': 2,
+                      'max_occupancy': 2, 'statistic': 'Boson',
+                      'noise_ampl': 1e-3}
         """
 
         # podaci koji moraju biti uneti
@@ -23,10 +26,24 @@ class SystemData:
             self.max_occupancy = parameters['max_occupancy']
         self.t, self.eps, self.V = \
             parameters['t'], parameters['eps'], parameters['V']
+        try:
+            self.noise_ampl = basic_info['noise_ampl']
+        except KeyError:
+            self.noise_ampl = 0
 
         # izvedeni podaci
         self.n_orb = self.L ** 2
         self.n_dim = (self.max_occupancy + 1) ** self.n_orb
+        self.noise = uniform(-self.noise_ampl, self.noise_ampl, self.n_orb)
+
+    def get_basic_info(self):
+        """
+        returns a dictionary which can later be used to initialise other
+        instances of the class, perhaps with some parameters modified
+        """
+
+        return {'statistic': self.statistic, 'noise_ampl': self.noise_ampl,
+                'L': self.L, 'eps': self.eps, 't': self.t, 'V': self.V}
 
 
 def bra(vec):
@@ -79,7 +96,7 @@ def construct_single_particle_hamiltonian(parameters):
     out = np.zeros((n_orb, n_orb))
 
     for i in range(n_orb):
-        out[i, i] = parameters.eps
+        out[i, i] = parameters.eps + parameters.noise[i]
         x, y = get_xy_of_i(L, i)
         for d in [-1, 1]:  # najblizhi susedi...
             for a, b in [(x, y+d), (x+d, y)]:  # po x i y osi
@@ -147,7 +164,7 @@ def get_ac_operator(i, a_or_c, parameters):
     if a_or_c == 'a':
         parameters.an_ops = out
         return parameters.an_ops[i, :, :]
-    elif a_or_c == '':
+    elif a_or_c == 'c':
         parameters.cr_ops = out
         return parameters.cr_ops[i, :, :]
 
@@ -185,8 +202,9 @@ def construct_hamiltonian_from_operators(parameters):
     except AttributeError:
         pass
 
-    L, eps, t, V, n_orb, n_dim = parameters.L, parameters.eps, parameters.t, \
-        parameters.V, parameters.n_orb, parameters.n_dim
+    L, eps, t, V, n_orb, n_dim, noise = \
+        parameters.L, parameters.eps, parameters.t, parameters.V, \
+        parameters.n_orb, parameters.n_dim, parameters.noise
     fock_states = get_fock_states(parameters)
     out = np.zeros((n_dim, n_dim))
     # glup nacin da se osigura postojanje an i cr operatora
@@ -238,6 +256,7 @@ def find_fock_eigenstates(parameters):
         pass
 
     n_orb, n_dim = parameters.n_orb, parameters.n_dim
+    fock_states = get_fock_states(parameters)
     split_hmltn = split_hamiltonian_into_blocks(parameters)
     eigvals, eigvecs = np.array([]), np.empty((0, n_dim))
     for it in range(n_orb+1):
@@ -267,51 +286,90 @@ def find_lowest_lying_eigenstate(parameters):
     return parameters.ground_energy, parameters.ground_state
 
 
-def plot_ntot_on_eps_t_graph(parameters, plt_density=21):
+def constr_ground_state_from_operators(parameters):
+    try:
+        return parameters.ground_energy, parameters.ground_state
+    except AttributeError:
+        pass
+
+    n_orb, n_dim = parameters.n_orb, parameters.n_dim
     fock_states = get_fock_states(parameters)
-    num_op = [get_number_operator(i) for i in range(parameters.L**2)]
-    num_op = np.array(num_op)
+
+    eigvals, eigvecs = find_fock_eigenstates(parameters)
+    single_ptcl = np.sum(fock_states, axis=1) == 1
+    # prvo izvuchemo stanja koja odgovaraju jednochestichnom prostoru
+    # a zatim izvucemo deo tih stanja koji odg jednochestichnom prostoru
+    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
+    sptcl_eigvals = eigvals[single_ptcl]
+
+    ground_state = np.zeros(n_dim)
+    ground_state[0] = 1
+    for state in sptcl_eigvecs[sptcl_eigvals < 0]:
+        cr_op = get_state_ac_operator(state, 'c', parameters)
+        ground_state = cr_op @ ground_state
+
+    parameters.ground_energy = np.sum(sptcl_eigvals[sptcl_eigvals < 0])
+    parameters.ground_state = ground_state
+    return parameters.ground_energy, parameters.ground_state
+
+
+def plot_ntot_on_eps_t_graph(parameters, plt_density=21):
+    V, n_orb, n_dim = parameters.V, parameters.n_orb, parameters.n_dim
+    fock_states = get_fock_states(parameters)
+    num_op = np.empty((n_orb, n_dim, n_dim))
+    for it in range(n_orb):
+        num_op[it, :, :] = get_number_operator(it, parameters)
 
     eps_arr = np.linspace(-10, 0, plt_density)
     t_arr = np.linspace(-10, 0, plt_density)
     n_tot = np.zeros((eps_arr.shape[0], t_arr.shape[0]))
 
+    basic_info = parameters.get_basic_info()
     for eps_it, eps in enumerate(eps_arr):
         for t_it, t in enumerate(t_arr):
-            parameters.eps = eps
-            parameters.t = t
+            basic_info['eps'], basic_info['t'] = eps, t
+            temp_param = SystemData(basic_info)
 
-            _, ll_eigvec = find_lowest_lying_eigenstate(parameters)
+            _, ll_eigvec = find_lowest_lying_eigenstate(temp_param)
             first_ind = np.nonzero(ll_eigvec)[0][0]
             n_tot[eps_it, t_it] = np.sum(fock_states[first_ind])
+            # n_tot[eps_it, t_it] = np.sum(fock_states[first_ind, :])
             exp_sum = sum([calc_exp(num_op[i, :, :],
-                           ll_eigvec) for i in range(parameters.L**2)])
+                           ll_eigvec) for i in range(n_orb)])
             if np.abs(n_tot[eps_it, t_it] - exp_sum) > 1e-6:
                 print('Broj chestica nije dobar')
                 print('eps =', eps, '\tt =', t)
                 print('Iz Fokovog stanja:', n_tot[eps_it, t_it])
                 print('Iz zbira ocekivanja:', exp_sum, '\n')
 
-    title = '$N_{tot}$ u zavisnosti od $\\varepsilon$ i $t$, $V = ' + \
-            str(parameters.V) + '$'
+    title = '$N_{tot}$ u zavisnosti od $\\epsilon$ i $t$, $V = ' + str(V) + '$'
     plt.title(title)
     plt.xlabel('$t$')
-    plt.ylabel('$\\varepsilon$')
+    plt.ylabel('$\\epsilon$')
     plt.contourf(eps_arr, t_arr, n_tot)
-    # plt.contourf(eps_arr, t_arr, n_tot, parameters.L**2)
     plt.colorbar()
     plt.show()
 
 
 def plot_exp_neighbors(parameters, V_max=101):
+    n_orb, n_dim = parameters.n_orb, parameters.n_dim
     V_arr = np.linspace(0, V_max, V_max+1)
     exp_arr = np.zeros(V_arr.shape)
+    num_op = np.empty((n_orb, n_dim, n_dim))
+    for it in range(n_orb):
+        num_op[it, :, :] = get_number_operator(it, parameters)
+
+    basic_info = parameters.get_basic_info()
     for it, V in enumerate(V_arr):
-        parameters.V = V
-        _, ll_eigvec = find_lowest_lying_eigenstate(parameters)
-        n0 = get_number_operator(0, parameters)
-        n1 = get_number_operator(1, parameters)
-        exp_arr[it] = calc_exp(n0 @ n1, ll_eigvec)
+        basic_info['V'] = V
+        temp_param = SystemData(basic_info)
+        ll_eigval, ll_eigvec = find_lowest_lying_eigenstate(temp_param)
+        exp_sum = sum(
+            [calc_exp(num_op[i, :, :], ll_eigvec) for i in range(n_orb)])
+        exp_arr[it] = calc_exp(num_op[0, :, :] @ num_op[1, :, :], ll_eigvec)
+
+        # print('V = {:4d}, gr_energy = {:4.2f}, n_tot = {:4.1f}'.
+        #       format(int(V), ll_eigval, exp_sum))
 
     plt.plot(V_arr, exp_arr)
     plt.xlabel('V')
@@ -349,33 +407,6 @@ def check_Wick_theorem(state_vec, parameters):
         print("Sve verovatnoće se poklapaju.")
     else:
         print("Postoje verovatnoće koje se ne poklapaju.")
-
-
-def constr_ground_state_from_operators(parameters):
-    try:
-        return parameters.ground_energy, parameters.ground_state
-    except AttributeError:
-        pass
-
-    n_orb, n_dim = parameters.n_orb, parameters.n_dim
-    fock_states = get_fock_states(parameters)
-
-    eigvals, eigvecs = find_fock_eigenstates(parameters)
-    single_ptcl = np.sum(fock_states, axis=1) == 1
-    # prvo izvuchemo stanja koja odgovaraju jednochestichnom prostoru
-    # a zatim izvucemo deo tih stanja koji odg jednochestichnom prostoru
-    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
-    sptcl_eigvals = eigvals[single_ptcl]
-
-    ground_state = np.zeros(n_dim)
-    ground_state[0] = 1
-    for state in sptcl_eigvecs[sptcl_eigvals < 0]:
-        cr_op = get_state_ac_operator(state, 'c', parameters)
-        ground_state = cr_op @ ground_state
-
-    parameters.ground_energy = np.sum(sptcl_eigvals[sptcl_eigvals < 0])
-    parameters.ground_state = ground_state
-    return parameters.ground_energy, parameters.ground_state
 
 
 def calc_spectral_function(el_state, parameters):
@@ -423,6 +454,17 @@ def total_spectral_function(parameters):
     for i in range(br_func):
         spec_func += calc_spectral_function(sptcl_eigvecs[i], parameters)[1]
     return omega, 1/br_func * spec_func
+
+
+def plot_total_spectral_function(parameters):
+    omega, func = total_spectral_function(parameters)
+    print('pikovi spektralne funkcije:', omega[func != 0])
+
+    plt.title('Totalna spektralna funkcija')
+    plt.xlabel('$\\omega$')
+    plt.ylabel('$\\rho(\\omega)$')
+    plt.plot(omega, func)
+    plt.show()
 
 
 def step_function(x, parameters):
@@ -476,7 +518,12 @@ def green_function(alpha, beta, parameters):
 
 
 def main(parameters):
-    print('Parametri:', parameters)
+    print('Osnovni podaci o sistemu:')
+    print('\tVelicina osnovne jedinice: {0}x{0}'.format(parameters.L))
+    print('\tStatistika:', parameters.statistic)
+    print('\tAmplituda suma:', parameters.noise_ampl)
+    print('\teps, t, V = {0}, {1}, {2}'.format(parameters.eps, parameters.t,
+                                               parameters.V))
 
     fock_states = get_fock_states(parameters)
     print('Fokova stanja:')
@@ -495,42 +542,19 @@ def main(parameters):
     print('Odgovarajuce svojstveno stanje:')
     print(ll_eigvec)
 
-    # check_Wick_theorem(ll_eigvec)
-
-    omega, func = calc_spectral_function([1, 0, 0, 0], parameters)
-    plt.plot(omega, func)
-    plt.show()
+    plot_ntot_on_eps_t_graph(parameters)
+    plot_exp_neighbors(parameters)
+    check_Wick_theorem(ll_eigvec, parameters)
+    plot_total_spectral_function(parameters)
 
 
 if __name__ == '__main__':
-    basic_info = {'eps': -3, 't': -2, 'V': 0, 'L': 2, 'statistic': 'Fermion'}
+    basic_info = {'eps': -8, 't': -2, 'V': 0, 'L': 2,
+                  'statistic': 'Fermion', 'noise_ampl': 1e-1}
     parameters = SystemData(basic_info)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     # main(parameters)
 
-    fock_states = get_fock_states(parameters)
-    eigvals, eigvecs = find_fock_eigenstates(parameters)
-    single_ptcl = np.sum(fock_states, axis=1) == 1
-    sptcl_eigvals = eigvals[single_ptcl]
-    sptcl_eigvecs = eigvecs[single_ptcl][:, single_ptcl]
-    omega, func = total_spectral_function(parameters)
-    print('svojstvene energije jednochestichnog hamiltonijana:', sptcl_eigvals)
-    print('pikovi spektralne funkcije:', omega[func != 0])
-    print('norma:', np.sum(func))
-
-    plt.title('Totalna spektralna funkcija')
-    plt.xlabel('$\\omega$')
-    plt.ylabel('$\\rho(\\omega)$')
-    plt.plot(omega, func)
-    plt.show()
-    '''
-    plt.plot(green_function([1,0,0,0], [1,0,0,0], parameters))
-    plt.show()
-    plt.plot(green_function([0,1,0,0], [0,1,0,0], parameters))
-    plt.show()
-    plt.plot(green_function([0,0,1,0], [0,0,1,0], parameters))
-    plt.show()
-    plt.plot(green_function([0,0,0,1], [0,0,0,1], parameters))
-    plt.show()
-    '''
+    # plot_ntot_on_eps_t_graph(parameters)
+    plot_exp_neighbors(parameters, V_max=51)
