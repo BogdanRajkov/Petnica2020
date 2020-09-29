@@ -213,7 +213,7 @@ def construct_hamiltonian_from_operators(parameters):
     a, c = parameters.an_ops, parameters.cr_ops
 
     for i in range(n_orb):
-        out += eps * c[i] @ a[i]
+        out += (eps + noise[i]) * c[i] @ a[i]
         x, y = get_xy_of_i(L, i)
         # najblizhi susedi, ali pazimo na
         # klasteru 2x2 da ne rachunamo dvaput isto
@@ -281,17 +281,12 @@ def find_lowest_lying_eigenstate(parameters):
     eigvals, eigvecs = find_fock_eigenstates(parameters)
     ll_ind = np.argmin(eigvals)
 
-    parameters.ground_energy, parameters.ground_state = \
-        eigvals[ll_ind], eigvecs[ll_ind]
+    parameters.ground_energy = eigvals[ll_ind]
+    parameters.ground_state = eigvecs[ll_ind]
     return parameters.ground_energy, parameters.ground_state
 
 
 def constr_ground_state_from_operators(parameters):
-    try:
-        return parameters.ground_energy, parameters.ground_state
-    except AttributeError:
-        pass
-
     n_orb, n_dim = parameters.n_orb, parameters.n_dim
     fock_states = get_fock_states(parameters)
 
@@ -308,9 +303,8 @@ def constr_ground_state_from_operators(parameters):
         cr_op = get_state_ac_operator(state, 'c', parameters)
         ground_state = cr_op @ ground_state
 
-    parameters.ground_energy = np.sum(sptcl_eigvals[sptcl_eigvals < 0])
-    parameters.ground_state = ground_state
-    return parameters.ground_energy, parameters.ground_state
+    ground_energy = np.sum(sptcl_eigvals[sptcl_eigvals < 0])
+    return ground_energy, ground_state
 
 
 def plot_ntot_on_eps_t_graph(parameters, plt_density=21):
@@ -482,7 +476,7 @@ def constr_time_propagator(t, parameters):
 
     time_prop = np.zeros((n_dim, n_dim))
     di = np.diag_indices(n_dim)
-    time_prop[di] = eigvals
+    time_prop[di] = np.exp(1j*t*eigvals)
 
     for it in range(n_dim):
         site_to_eigenstate[:, it] = eigvecs[it]
@@ -509,11 +503,13 @@ def green_function(alpha, beta, parameters):
     an_alpha = get_state_ac_operator(alpha, 'a', parameters)
     cr_beta = get_state_ac_operator(beta, 'c', parameters)
     for it, t in enumerate(p):
+        time_prop_forw = constr_time_propagator(t, parameters)
+        time_prop_back = constr_time_propagator(-t, parameters)
         g[it] = -1j * step_function(t, parameters) * \
-            (braket(ground_bra * np.exp(1j*i*ground_energy) * an_alpha,
-                    np.exp(-1j*i*ground_energy) * cr_beta * ground_ket)
-                + braket(ground_bra * cr_beta * np.exp(1j*i*ground_energy),
-                         an_alpha * np.exp(-1j*i*ground_energy) * ground_ket))
+            (braket(ground_bra * time_prop_forw * an_alpha,
+                    time_prop_back * cr_beta * ground_ket)
+                + braket(ground_bra * cr_beta * time_prop_forw,
+                         an_alpha * time_prop_back * ground_ket))
     return p, g
 
 
@@ -537,24 +533,21 @@ def main(parameters):
     print('Svojstvene energije:', eigvals)
     print('Svojstvena stanja:', eigvecs, sep='\n', end='\n\n')
 
-    ll_eigval, ll_eigvec = constr_ground_state_from_operators(parameters)
+    ll_eigval, ll_eigvec = find_lowest_lying_eigenstate(parameters)
     print('Najniza svojstvena energija:', ll_eigval)
     print('Odgovarajuce svojstveno stanje:')
     print(ll_eigvec)
 
     plot_ntot_on_eps_t_graph(parameters)
-    plot_exp_neighbors(parameters)
-    check_Wick_theorem(ll_eigvec, parameters)
-    plot_total_spectral_function(parameters)
+    # plot_exp_neighbors(parameters)
+    # check_Wick_theorem(ll_eigvec, parameters)
+    # plot_total_spectral_function(parameters)
 
 
 if __name__ == '__main__':
-    basic_info = {'eps': -8, 't': -2, 'V': 0, 'L': 2,
-                  'statistic': 'Fermion', 'noise_ampl': 1e-1}
+    basic_info = {'eps': -8, 't': -2, 'V': 2, 'L': 2,
+                  'statistic': 'Fermion', 'noise_ampl': 1e-3}
     parameters = SystemData(basic_info)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    # main(parameters)
-
-    # plot_ntot_on_eps_t_graph(parameters)
-    plot_exp_neighbors(parameters, V_max=51)
+    main(parameters)
