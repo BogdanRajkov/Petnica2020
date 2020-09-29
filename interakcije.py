@@ -548,13 +548,19 @@ def main(parameters):
 
 
 if __name__ == '__main__':
-    basic_info = {'eps': -8, 't': -2, 'V': 2, 'L': 2,
+    basic_info = {'eps': -8, 't': -2, 'V': 0, 'L': 2,
                   'statistic': 'Fermion', 'noise_ampl': 1e-3}
     parameters = SystemData(basic_info)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
     # main(parameters)
-    i = np.array([1, 0, 0, 0])
-    p, g = green_function(i, i, parameters)
-    plt.plot(p, g)
+
+    fock_states = get_fock_states(parameters)
+    sptcl = np.sum(fock_states, axis=1) == 1
+    _, eigvecs = find_fock_eigenstates(parameters)
+    alfa = eigvecs[2, :][sptcl]
+
+    p, g = green_function(alfa, alfa, parameters)
+    g_norm = np.abs(g)
+    plt.plot(p, g_norm)
     plt.show()
