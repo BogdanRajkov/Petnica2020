@@ -496,7 +496,7 @@ def green_function(alpha, beta, parameters):
     # broj tacaka takav da razlika izmedju uzastopnih bude tacno step
     no_points = 2 * g_max * 10**(-step_log) + 1
     p = np.linspace(-g_max, g_max, no_points)
-    g = np.zeros_like(p)
+    g = np.zeros_like(p, dtype=np.complex64)
     ground_energy, ground_state = \
         constr_ground_state_from_operators(parameters)
     ground_bra = np.array(bra(ground_state), dtype=np.complex64)
