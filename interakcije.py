@@ -471,10 +471,10 @@ def step_function(x, parameters):
 def constr_time_propagator(t, parameters):
     eigvals, eigvecs = find_fock_eigenstates(parameters)
     n_dim = len(eigvals)
-    site_to_eigenstate = np.empty((n_dim, n_dim))
-    eigenstate_to_site = np.empty((n_dim, n_dim))
+    site_to_eigenstate = np.empty((n_dim, n_dim), dtype=np.complex64)
+    eigenstate_to_site = np.empty((n_dim, n_dim), dtype=np.complex64)
 
-    time_prop = np.zeros((n_dim, n_dim))
+    time_prop = np.zeros((n_dim, n_dim), dtype=np.complex64)
     di = np.diag_indices(n_dim)
     time_prop[di] = np.exp(1j*t*eigvals)
 
@@ -499,17 +499,20 @@ def green_function(alpha, beta, parameters):
     g = np.zeros_like(p)
     ground_energy, ground_state = \
         constr_ground_state_from_operators(parameters)
-    ground_bra, ground_ket = bra(ground_state), ket(ground_ket)
+    ground_bra = np.array(bra(ground_state), dtype=np.complex64)
+    ground_ket = np.array(ket(ground_state), dtype=np.complex64)
     an_alpha = get_state_ac_operator(alpha, 'a', parameters)
+    an_alpha = np.array(an_alpha, dtype=np.complex64)
     cr_beta = get_state_ac_operator(beta, 'c', parameters)
+    cr_beta = np.array(cr_beta, dtype=np.complex64)
     for it, t in enumerate(p):
         time_prop_forw = constr_time_propagator(t, parameters)
         time_prop_back = constr_time_propagator(-t, parameters)
         g[it] = -1j * step_function(t, parameters) * \
-            (braket(ground_bra * time_prop_forw * an_alpha,
-                    time_prop_back * cr_beta * ground_ket)
-                + braket(ground_bra * cr_beta * time_prop_forw,
-                         an_alpha * time_prop_back * ground_ket))
+            ((ground_bra @ time_prop_forw @ an_alpha @ time_prop_back @
+              cr_beta @ ground_ket)[0][0]
+             + (ground_bra @ cr_beta @ time_prop_forw @ an_alpha @
+                time_prop_back @ ground_ket)[0][0])
     return p, g
 
 
@@ -538,7 +541,7 @@ def main(parameters):
     print('Odgovarajuce svojstveno stanje:')
     print(ll_eigvec)
 
-    plot_ntot_on_eps_t_graph(parameters)
+    # plot_ntot_on_eps_t_graph(parameters)
     # plot_exp_neighbors(parameters)
     # check_Wick_theorem(ll_eigvec, parameters)
     # plot_total_spectral_function(parameters)
@@ -550,4 +553,8 @@ if __name__ == '__main__':
     parameters = SystemData(basic_info)
     np.set_printoptions(precision=3, floatmode='maxprec', suppress=True)
 
-    main(parameters)
+    # main(parameters)
+    i = np.array([1, 0, 0, 0])
+    p, g = green_function(i, i, parameters)
+    plt.plot(p, g)
+    plt.show()
