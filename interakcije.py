@@ -515,6 +515,18 @@ def green_function(alpha, beta, parameters):
                 time_prop_back @ ground_ket)[0][0])
     return p, g
 
+def green_function_matrix(parameters):
+    G = np.zeros((parameters.n_dim, parameters.n_dim), dtype=np.complex64)
+    H = construct_hamiltonian_from_operators(parameters)
+    I = np.identity(parameters.n_dim)
+    step_log = -2          # log10 od razlike uzastopnih chlanova niza omega
+    step = 10 ** step_log  # u ovom slucaju razlika uzastopnih je 0.01
+    omega_max = 100  # spektralnu f racunamo na opsegu [-omega_max, omega_max]
+    # broj tacaka takav da razlika izmedju uzastopnih bude tacno step
+    omega = 2 * omega_max * 10**(-step_log) + 1
+    G=I*(omega+1j*1e-6)-H
+    return G
+    
 
 def main(parameters):
     print('Osnovni podaci o sistemu:')
@@ -564,3 +576,6 @@ if __name__ == '__main__':
     g_norm = np.abs(g)
     plt.plot(p, g_norm)
     plt.show()
+    
+    G=green_function_matrix(parameters)
+    print(G)
